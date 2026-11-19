@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Karaoke - Pantalla Principal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --bg-card: #181818;
+      --bg-elevated: #242424;
+      --green: #1DB954;
+      --green-bright: #1ed760;
+      --gold: #FFD700;
+      --text-main: #FFFFFF;
+      --text-muted: #B3B3B3;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Montserrat', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* ZONA VIDEO */
+    .stage-container {
+      position: relative;
+      flex: 1;
+      height: 100vh;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    #player {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Overlay inicial para desbloquear audio/autoplay del navegador */
+    .unlock-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 10, 10, 0.95);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+    }
+    .unlock-btn {
+      background: var(--green);
+      color: #000;
+      border: none;
+      font-family: inherit;
+      font-size: 1.4rem;
+      font-weight: 900;
+      padding: 20px 44px;
+      border-radius: 50px;
+      cursor: pointer;
+      margin-top: 24px;
+      box-shadow: 0 10px 30px rgba(29, 185, 84, 0.4);
+    }
+    .unlock-btn:hover { transform: scale(1.04); background: var(--green-bright); }
+
+    /* Pantalla de espera cuando no hay canciones */
+    .empty-stage {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, #1e3a28 0%, #121212 75%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px;
+      z-index: 5;
+    }
+    .empty-stage h1 { font-size: 3.5rem; font-weight: 900; margin-bottom: 16px; }
+    .empty-stage p { font-size: 1.3rem; color: var(--text-muted); max-width: 600px; }
+    .empty-stage .url-badge {
+      margin-top: 28px;
+      background: var(--green);
+      color: #000;
+      font-weight: 800;
+      font-size: 1.4rem;
+      padding: 14px 32px;
+      border-radius: 50px;
+    }
+
+    /* Barra superior flotante compacta: SOLO CANTANTE + ESTRELLAS */
+    .now-singing-bar {
+      position: absolute;
+      top: 18px;
+      left: 22px;
+      background: rgba(18, 18, 18, 0.9);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.14);
+      padding: 10px 16px 10px 20px;
+      border-radius: 50px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      z-index: 10;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    }
+    .live-dot {
+      width: 12px; height: 12px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 12px var(--green);
+      animation: pulse 1.5s infinite;
+    }
+    .now-singing-bar .singer {
+      font-weight: 900;
+      color: #FFFFFF;
+      font-size: 1.25rem;
+      letter-spacing: 0.3px;
+    }
+
+    /* Píldora de estrellas notoria */
+    .score-pill {
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.25), rgba(255, 180, 0, 0.15));
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      padding: 6px 14px;
+      border-radius: 30px;
+      font-weight: 900;
+      font-size: 1.15rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 0 14px rgba(255, 215, 0, 0.25);
+      letter-spacing: 0.5px;
+    }
+    .score-pill small {
+      font-size: 0.8rem;
+      color: #fff;
+      font-weight: 700;
+      opacity: 0.85;
+    }
+
+    /* QR flotante cuando la sidebar está oculta */
+    .floating-qr {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(20, 20, 20, 0.9);
+      padding: 8px;
+      border-radius: 12px;
+      border: 1px solid #333;
+      z-index: 15;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+    .floating-qr img { width: 128px; height: 128px; border-radius: 6px; background: #fff; padding: 2px; }
+    .floating-qr span { font-size: 0.75rem; font-weight: 700; color: var(--green); max-width: 120px; }
+
+    /* Ventanita "PRÓXIMAMENTE" */
+    .up-next-banner {
+      position: absolute;
+      bottom: 36px;
+      left: 32px;
+      background: rgba(24, 24, 24, 0.95);
+      backdrop-filter: blur(14px);
+      border-left: 6px solid var(--green);
+      padding: 18px 26px;
+      border-radius: 14px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.75);
+      z-index: 15;
+      transform: translateY(160%);
+      transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+      max-width: 480px;
+    }
+    .up-next-banner.visible { transform: translateY(0); }
+    .up-next-banner .tag {
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: var(--green);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .up-next-banner .next-singer { font-size: 1.6rem; font-weight: 900; }
+    .up-next-banner .next-song { font-size: 0.95rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* Pantalla gigante de transición + Delay con cuenta regresiva */
+    .spotlight-overlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, #1b4d2e 0%, #0d0d0d 85%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      z-index: 30;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+      padding: 40px;
+    }
+    .spotlight-overlay.active { opacity: 1; pointer-events: auto; }
+    .spotlight-overlay .label {
+      font-size: 1.3rem;
+      letter-spacing: 4px;
+      color: var(--green-bright);
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .spotlight-overlay .big-name {
+      font-size: 5.5rem;
+      font-weight: 900;
+      line-height: 1.05;
+      text-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      margin-bottom: 20px;
+    }
+    .spotlight-overlay .big-song {
+      font-size: 1.8rem;
+      color: var(--text-muted);
+      max-width: 800px;
+      font-weight: 600;
+      margin-bottom: 32px;
+    }
+    .countdown-pill {
+      background: rgba(0, 0, 0, 0.55);
+      border: 2px solid var(--green);
+      color: var(--green-bright);
+      padding: 12px 30px;
+      border-radius: 50px;
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+
+    /* POPUP LLAMATIVO CUANDO ALGUIEN AGREGA UNA CANCIÓN */
+    .popup-container {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 40;
+      pointer-events: none;
+    }
+    .song-popup {
+      background: linear-gradient(135deg, #1b3826, #181818);
+      border: 2px solid var(--green);
+      border-radius: 16px;
+      padding: 16px 22px;
+      box-shadow: 0 14px 36px rgba(0,0,0,0.8);
+      animation: popBounce 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      max-width: 360px;
+    }
+    .song-popup .pop-header {
+      font-size: 0.75rem;
+      color: var(--green-bright);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .song-popup .pop-singer {
+      font-size: 1.25rem;
+      font-weight: 900;
+      margin-top: 4px;
+    }
+    .song-popup .pop-song {
+      font-size: 0.88rem;
+      color: #ddd;
+      margin-top: 2px;
+    }
+
+    /* PANEL LATERAL DERECHO: CANTANTE + NOMBRE DE CANCIÓN */
+    .sidebar {
+      width: 350px;
+      background: var(--bg-card);
+      border-left: 1px solid #282828;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 20px 16px;
+      justify-content: space-between;
+      transition: width 0.3s ease, padding 0.3s ease;
+    }
+    .sidebar.collapsed {
+      width: 0;
+      padding: 0;
+      overflow: hidden;
+      border-left: none;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #282828;
+    }
+    .sidebar-header h2 { font-size: 1.15rem; font-weight: 800; }
+    .badge-count {
+      background: var(--bg-elevated);
+      color: var(--green);
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+    }
+
+    .queue-list {
+      flex: 1;
+      overflow-y: auto;
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-right: 4px;
+    }
+    .queue-list::-webkit-scrollbar { width: 5px; }
+    .queue-list::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
+    .queue-item {
+      background: var(--bg-elevated);
+      padding: 12px 14px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .queue-num {
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: var(--green);
+      min-width: 26px;
+    }
+    .queue-info {
+      overflow: hidden;
+      flex: 1;
+    }
+    .queue-singer {
+      font-weight: 800;
+      font-size: 1rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .queue-song {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .qr-box {
+      margin-top: 14px;
+      background: #202020;
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid #2e2e2e;
+    }
+    .qr-box.hidden { display: none; }
+    .qr-box img {
+      width: 68px;
+      height: 68px;
+      border-radius: 6px;
+      background: #fff;
+      padding: 3px;
+    }
+    .qr-text strong { display: block; font-size: 0.85rem; color: var(--green); }
+    .qr-text span { font-size: 0.72rem; color: var(--text-muted); word-break: break-all; }
+
+    /* OVERLAY RANKING FINAL */
+    .ranking-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(12, 12, 12, 0.97);
+      z-index: 50;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    .ranking-overlay.active { display: flex; }
+    .ranking-overlay h1 { font-size: 3.2rem; font-weight: 900; color: var(--green); margin-bottom: 8px; }
+    .ranking-overlay p { color: var(--text-muted); font-size: 1.1rem; margin-bottom: 32px; }
+    .ranking-list {
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    .rank-card {
+      background: var(--bg-elevated);
+      border-radius: 14px;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid #333;
+    }
+    .rank-card:nth-child(1) { border-color: #FFD700; background: linear-gradient(90deg, rgba(255,215,0,0.15), var(--bg-elevated)); }
+    .rank-card:nth-child(2) { border-color: #C0C0C0; }
+    .rank-card:nth-child(3) { border-color: #CD7F32; }
+    .rank-left { display: flex; align-items: center; gap: 18px; }
+    .rank-pos { font-size: 1.8rem; font-weight: 900; width: 42px; text-align: center; }
+    .rank-singer { font-size: 1.3rem; font-weight: 800; }
+    .rank-song { font-size: 0.9rem; color: var(--text-muted); }
+    .rank-score { text-align: right; }
+    .rank-stars { font-size: 1.6rem; font-weight: 900; color: var(--gold); }
+    .rank-votes { font-size: 0.8rem; color: var(--text-muted); }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    @keyframes popBounce {
+      0% { transform: scale(0.7) translateY(-20px); opacity: 0; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PANTALLA DE DESBLOQUEO DE AUDIO -->
+  <div class="unlock-overlay" id="unlockOverlay">
+    <h1 style="font-size:3rem; font-weight:900;">🎤 KARAOKE</h1>
+    <img id="QRinicio" src="" alt="QR">
+    <button class="unlock-btn" onclick="unlockStage()">▶️ INICIAR ESCENARIO</button>
+  </div>
+
+  <!-- ESCENARIO PRINCIPAL -->
+  <div class="stage-container">
+    <div id="player"></div>
+
+    <!-- QR flotante cuando se oculta la lista desde admin -->
+    <div class="floating-qr" id="floatingQr">
+      <img id="floatQrImg" src="" alt="QR">
+    </div>
+
+    <!-- Pantalla vacía inicial -->
+    <div class="empty-stage" id="emptyStage">
+      <h1>🎤 KARAOKE</h1>
+      <p>Escaneá el QR o entrá desde tu celu para sumar tu canción a la cola.</p>
+      <img id="QRinicio2" src="" alt="QR">
+      <div class="url-badge" id="centerUrl">Cargando...</div>
+    </div>
+
+    <!-- Barra flotante superior: SOLO CANTANTE + ESTRELLAS -->
+    <div class="now-singing-bar" id="nowBar" style="display:none;">
+      <div class="live-dot"></div>
+      <div class="singer" id="nowSinger">-</div>
+      <div class="score-pill" id="nowScore">★ 0.0 <small>(0)</small></div>
+    </div>
+
+    <!-- Ventanita Próximamente -->
+    <div class="up-next-banner" id="upNextBanner">
+      <div class="tag">⏭ Próximamente en el escenario</div>
+      <div class="next-singer" id="nextSingerName">-</div>
+      <div class="next-song" id="nextSongTitle">-</div>
+    </div>
+
+    <!-- Cartel gigante con delay de arranque -->
+    <div class="spotlight-overlay" id="spotlightOverlay">
+      <div class="label">🔥 Ahora canta 🔥</div>
+      <div class="big-name" id="spotSinger">-</div>
+      <div class="big-song" id="spotSong">-</div>
+      <div class="countdown-pill" id="spotCountdown">Arranca en 5...</div>
+    </div>
+
+    <!-- Popups de nuevos temas -->
+    <div class="popup-container" id="popupContainer"></div>
+  </div>
+
+  <!-- COLA LATERAL (CANTANTE + NOMBRE DE CANCIÓN) Y QR -->
+  <aside class="sidebar" id="sidebar">
+    <div style="display:flex; flex-direction:column; flex:1; overflow:hidden;">
+      <div class="sidebar-header">
+        <h2>Próximas canciones</h2>
+        <span class="badge-count" id="queueCount">0</span>
+      </div>
+      <div class="queue-list" id="queueList"></div>
+    </div>
+
+    <div class="qr-box" id="qrBox">
+      <img id="qrImg" src="" alt="QR">
+      <div class="qr-text">
+        <strong>Sumate con tu celu</strong>
+        <span id="qrUrlText">...</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- RANKING FINAL -->
+  <div class="ranking-overlay" id="rankingOverlay">
+    <h1>🏆 RANKING DE LA NOCHE</h1>
+    <p>Los puntajes más altos votados por el público</p>
+    <div class="ranking-list" id="rankingList"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    const socket = io();
+    let player = null;
+    let playerReady = false;
+    let unlocked = false;
+    let currentVideoId = null;
+    let currentQueueId = null;
+    let currentSongTitle = '';
+    let pendingList = [];
+    let timeCheckInterval = null;
+    let introTimer = null;
+    let autoPlayEnabled = true;
+
+    const START_DELAY_SECONDS = 5;
+
+    fetch('/api/qr').then(r => r.json()).then(data => {
+      document.getElementById('qrImg').src = data.qr;
+      document.getElementById('floatQrImg').src = data.qr;
+      document.getElementById('QRinicio').src = data.qr;
+      document.getElementById('QRinicio2').src = data.qr;
+      document.getElementById('qrUrlText').textContent = data.url;
+      document.getElementById('centerUrl').textContent = data.url;
+    });
+
+    function unlockStage() {
+      unlocked = true;
+      document.getElementById('unlockOverlay').style.display = 'none';
+      if (playerReady && player && currentVideoId) {
+        const singer = document.getElementById('nowSinger').textContent;
+        prepareSongWithDelay(currentVideoId, singer, currentSongTitle);
+      }
+    }
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        height: '100%',
+        width: '100%',
+        host: 'https://www.youtube.com',
+        playerVars: {
+          autoplay: 0,
+          controls: 1,
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          origin: window.location.origin
+        },
+        events: {
+          onReady: () => {
+            playerReady = true;
+            if (currentVideoId && unlocked) {
+              const singer = document.getElementById('nowSinger').textContent;
+              prepareSongWithDelay(currentVideoId, singer, currentSongTitle);
+            }
+            startTimerCheck();
+          },
+          onStateChange: (event) => {
+            if (event.data === YT.PlayerState.ENDED) {
+              document.getElementById('upNextBanner').classList.remove('visible');
+              socket.emit('next_song');
+            }
+          },
+          onError: (e) => {
+            console.warn('Error reproductor YouTube código:', e.data);
+            showPopup('⚠️ Video bloqueado', 'No permite reproducirse fuera de YouTube. Pasando al siguiente...', '');
+            setTimeout(() => socket.emit('next_song'), 2500);
+          }
+        }
+      });
+    }
+
+    function startTimerCheck() {
+      if (timeCheckInterval) clearInterval(timeCheckInterval);
+      timeCheckInterval = setInterval(() => {
+        if (!playerReady || !player || typeof player.getDuration !== 'function') return;
+        const duration = player.getDuration();
+        const current = player.getCurrentTime();
+        const banner = document.getElementById('upNextBanner');
+
+        if (duration > 30 && (duration - current) <= 25 && (duration - current) > 1 && pendingList.length > 0) {
+          document.getElementById('nextSingerName').textContent = pendingList[0].singer;
+          document.getElementById('nextSongTitle').textContent = pendingList[0].title;
+          banner.classList.add('visible');
+        } else {
+          banner.classList.remove('visible');
+        }
+      }, 1000);
+    }
+
+    function prepareSongWithDelay(videoId, singer, song) {
+      if (introTimer) clearInterval(introTimer);
+
+      const overlay = document.getElementById('spotlightOverlay');
+      const countdownEl = document.getElementById('spotCountdown');
+
+      document.getElementById('spotSinger').textContent = singer;
+      document.getElementById('spotSong').textContent = song;
+      overlay.classList.add('active');
+
+      if (playerReady && player && unlocked) {
+        player.cueVideoById(videoId);
+      }
+
+      if (!autoPlayEnabled) {
+        countdownEl.textContent = '⏸ Autoplay desactivado — Esperando Play del anfitrión';
+        return;
+      }
+
+      let secondsLeft = START_DELAY_SECONDS;
+      countdownEl.textContent = `Arranca en ${secondsLeft}...`;
+
+      introTimer = setInterval(() => {
+        secondsLeft--;
+        if (secondsLeft > 0) {
+          countdownEl.textContent = `Arranca en ${secondsLeft}...`;
+        } else {
+          clearInterval(introTimer);
+          introTimer = null;
+          overlay.classList.remove('active');
+          if (playerReady && player && unlocked) {
+            player.playVideo();
+          }
+        }
+      }, 1000);
+    }
+
+    function showPopup(tag, title, subtitle) {
+      const container = document.getElementById('popupContainer');
+      const pop = document.createElement('div');
+      pop.className = 'song-popup';
+      pop.innerHTML = `
+        <div class="pop-header"><span>${tag}</span></div>
+        <div class="pop-singer">${title}</div>
+        ${subtitle ? `<div class="pop-song">${subtitle}</div>` : ''}
+      `;
+      container.appendChild(pop);
+      setTimeout(() => pop.remove(), 6000);
+    }
+
+    socket.on('player_command', (cmd) => {
+      if (!playerReady || !player) return;
+      if (cmd === 'play') {
+        if (introTimer) {
+          clearInterval(introTimer);
+          introTimer = null;
+        }
+        document.getElementById('spotlightOverlay').classList.remove('active');
+        player.playVideo();
+      }
+      if (cmd === 'pause') {
+        player.pauseVideo();
+      }
+      if (cmd === 'restart') {
+        if (introTimer) {
+          clearInterval(introTimer);
+          introTimer = null;
+        }
+        document.getElementById('spotlightOverlay').classList.remove('active');
+        player.seekTo(0);
+        player.playVideo();
+      }
+    });
+
+    socket.on('new_song_popup', ({ singer, title, position }) => {
+      const posText = position === 0 ? '¡Arranca ahora!' : `Puesto #${position} en la cola`;
+      showPopup(`➕ SE SUMÓ • ${posText}`, singer, title);
+    });
+
+    socket.on('ranking_update', ({ show, ranking }) => {
+      const overlay = document.getElementById('rankingOverlay');
+      const list = document.getElementById('rankingList');
+      if (!show) {
+        overlay.classList.remove('active');
+        return;
+      }
+
+      list.innerHTML = ranking.length === 0
+        ? '<p style="text-align:center;">Todavía no hay canciones puntuadas.</p>'
+        : ranking.map((item, idx) => `
+          <div class="rank-card">
+            <div class="rank-left">
+              <div class="rank-pos">${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '#' + (idx + 1)}</div>
+              <div>
+                <div class="rank-singer">${item.singer}</div>
+                <div class="rank-song">${item.title}</div>
+              </div>
+            </div>
+            <div class="rank-score">
+              <div class="rank-stars">★ ${item.avg_score}</div>
+              <div class="rank-votes">${item.vote_count} votos</div>
+            </div>
+          </div>
+        `).join('');
+
+      overlay.classList.add('active');
+    });
+
+    socket.on('state_update', (state) => {
+      pendingList = state.pending;
+      autoPlayEnabled = state.appState.autoPlay;
+
+      const overlay = document.getElementById('spotlightOverlay');
+      if (autoPlayEnabled && overlay.classList.contains('active') && !introTimer && currentVideoId) {
+        const singer = document.getElementById('nowSinger').textContent;
+        prepareSongWithDelay(currentVideoId, singer, currentSongTitle);
+      }
+
+      // Mostrar/ocultar sidebar (solo desde Admin)
+      const sidebar = document.getElementById('sidebar');
+      const floatingQr = document.getElementById('floatingQr');
+
+      if (state.appState.showSidebar) {
+        sidebar.classList.remove('collapsed');
+        floatingQr.style.display = 'none';
+      } else {
+        sidebar.classList.add('collapsed');
+        floatingQr.style.display = state.appState.showQR ? 'flex' : 'none';
+      }
+
+      // Mostrar/ocultar QR
+      const qrBox = document.getElementById('qrBox');
+      if (state.appState.showQR) qrBox.classList.remove('hidden');
+      else qrBox.classList.add('hidden');
+
+      // Actualizar cola lateral (CANTANTE + NOMBRE DE CANCIÓN)
+      document.getElementById('queueCount').textContent = state.pending.length;
+      const queueListEl = document.getElementById('queueList');
+      queueListEl.innerHTML = state.pending.length === 0
+        ? '<div style="color:#777; text-align:center; margin-top:40px; font-size:0.9rem;">La cola está vacía.<br>¡Subí tu canción!</div>'
+        : state.pending.map((item, i) => `
+          <div class="queue-item">
+            <div class="queue-num">#${i + 1}</div>
+            <div class="queue-info">
+              <div class="queue-singer">${item.singer}</div>
+              <div class="queue-song">${item.title}</div>
+            </div>
+          </div>
+        `).join('');
+
+      // Reproductor y cantante actual
+      const emptyStage = document.getElementById('emptyStage');
+      const nowBar = document.getElementById('nowBar');
+
+      if (!state.current) {
+        if (introTimer) {
+          clearInterval(introTimer);
+          introTimer = null;
+        }
+        overlay.classList.remove('active');
+        emptyStage.style.display = 'flex';
+        nowBar.style.display = 'none';
+        currentVideoId = null;
+        currentQueueId = null;
+        currentSongTitle = '';
+        if (playerReady && player && typeof player.stopVideo === 'function') player.stopVideo();
+      } else {
+        emptyStage.style.display = 'none';
+        nowBar.style.display = 'flex';
+        document.getElementById('nowSinger').textContent = state.current.singer;
+        document.getElementById('nowScore').innerHTML = `★ ${state.currentScore.avg} <small>(${state.currentScore.count})</small>`;
+        currentSongTitle = state.current.title;
+
+        if (currentQueueId !== state.current.id) {
+          currentQueueId = state.current.id;
+          currentVideoId = state.current.video_id;
+          prepareSongWithDelay(currentVideoId, state.current.singer, state.current.title);
+        }
+      }
+    });
+  </script>
+</body>
+</html>

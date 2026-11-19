@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Remoto - Karaoke</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #121212;
+      --card: #1e1e1e;
+      --green: #1DB954;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: #fff;
+      font-family: 'Montserrat', sans-serif;
+      padding: 20px;
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .login-box {
+      margin-top: 80px;
+      background: var(--card);
+      padding: 24px;
+      border-radius: 16px;
+      text-align: center;
+    }
+    input {
+      width: 100%;
+      padding: 14px;
+      margin: 16px 0;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #2a2a2a;
+      color: #fff;
+      font-size: 1.1rem;
+      text-align: center;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .btn {
+      padding: 16px 12px;
+      border: none;
+      border-radius: 14px;
+      font-family: inherit;
+      font-weight: 800;
+      font-size: 0.9rem;
+      cursor: pointer;
+      color: #fff;
+      background: #2a2a2a;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn-green { background: var(--green); color: #000; }
+    .btn-warn { background: rgba(245, 158, 11, 0.2); border: 1px solid var(--warn); color: #fde68a; }
+    .btn-danger { background: rgba(239,68,68,0.2); border: 1px solid var(--danger); color: #fca5a5; }
+    .btn-full { width: 100%; margin-bottom: 14px; }
+
+    .card {
+      background: var(--card);
+      padding: 16px;
+      border-radius: 14px;
+      margin-bottom: 16px;
+    }
+    .queue-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #2b2b2b;
+      gap: 8px;
+    }
+    .queue-row:last-child { border-bottom: none; }
+    .row-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .move-btn {
+      background: #303030;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .move-btn:disabled {
+      opacity: 0.25;
+      cursor: not-allowed;
+    }
+    .del-btn {
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-box" id="loginBox">
+    <h2>🎛️ Control Remoto</h2>
+    <input type="password" id="passInput" placeholder="Clave de admin">
+    <button class="btn btn-green btn-full" onclick="login()">Entrar</button>
+    <p id="loginErr" style="color:#ef4444; font-size:0.85rem;"></p>
+  </div>
+
+  <div id="adminPanel" style="display:none;">
+    <h2 style="margin-bottom:16px; color:var(--green);">🎛️ Control de Escenario</h2>
+
+    <div class="card">
+      <div style="font-size:0.75rem; color:#aaa; text-transform:uppercase;">Sonando ahora</div>
+      <div id="adminNow" style="font-weight:800; font-size:1.1rem; margin-top:4px;">Nada</div>
+    </div>
+
+    <div class="grid-2">
+      <button class="btn" onclick="socket.emit('prev_song')">⏮ Anterior</button>
+      <button class="btn btn-green" onclick="socket.emit('next_song')">Siguiente ⏭</button>
+      <button class="btn" onclick="sendAdmin('toggle_play')">⏯ Play / Pausa</button>
+      <button class="btn" onclick="sendAdmin('restart_video')">🔄 Reiniciar tema</button>
+    </div>
+
+    <button class="btn btn-green btn-full" onclick="sendAdmin('toggle_autoplay')" id="autoplayToggleBtn">⚡ Autoplay: ACTIVADO</button>
+
+    <div class="grid-2">
+      <button class="btn" onclick="sendAdmin('toggle_sidebar')" id="sidebarToggleBtn">👁️ Ocultar Lista</button>
+      <button class="btn" onclick="sendAdmin('toggle_qr')" id="qrToggleBtn">📱 Ocultar QR</button>
+    </div>
+
+    <button class="btn btn-green btn-full" onclick="sendAdmin('toggle_ranking')" id="rankToggleBtn">🏆 Ver Ranking Final</button>
+
+    <div class="card">
+      <h3 style="font-size:0.95rem; margin-bottom:10px;">Cola de espera (Mover o Eliminar)</h3>
+      <div id="adminQueue"></div>
+    </div>
+
+    <button class="btn btn-danger btn-full" onclick="confirmReset()">🗑️ Borrar toda la noche y reiniciar</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let adminPass = localStorage.getItem('karaoke_admin_pass') || '';
+
+    if (adminPass) {
+      document.getElementById('loginBox').style.display = 'none';
+      document.getElementById('adminPanel').style.display = 'block';
+    }
+
+    async function login() {
+      const password = document.getElementById('passInput').value;
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      if (res.ok) {
+        adminPass = password;
+        localStorage.setItem('karaoke_admin_pass', password);
+        document.getElementById('loginBox').style.display = 'none';
+        document.getElementById('adminPanel').style.display = 'block';
+      } else {
+        document.getElementById('loginErr').textContent = 'Clave incorrecta';
+      }
+    }
+
+    function sendAdmin(action, extra = {}) {
+      socket.emit('admin_action', { password: adminPass, action, ...extra });
+    }
+
+    function confirmReset() {
+      if (confirm('¿Seguro que querés borrar toda la cola, nombres y votos?')) {
+        sendAdmin('reset_all');
+      }
+    }
+
+    socket.on('state_update', (state) => {
+      document.getElementById('adminNow').textContent = state.current
+        ? `${state.current.singer} — ${state.current.title}`
+        : 'Ningún tema sonando';
+
+      const autoBtn = document.getElementById('autoplayToggleBtn');
+      if (state.appState.autoPlay) {
+        autoBtn.textContent = '⚡ Autoplay: ACTIVADO';
+        autoBtn.className = 'btn btn-green btn-full';
+      } else {
+        autoBtn.textContent = '⏸ Autoplay: DESACTIVADO (Manual)';
+        autoBtn.className = 'btn btn-warn btn-full';
+      }
+
+      document.getElementById('sidebarToggleBtn').textContent = state.appState.showSidebar ? '👁️ Ocultar Lista' : '📋 Mostrar Lista';
+      document.getElementById('qrToggleBtn').textContent = state.appState.showQR ? '📱 Ocultar QR' : '📱 Mostrar QR';
+      document.getElementById('rankToggleBtn').textContent = state.appState.showRanking ? '❌ Cerrar Ranking' : '🏆 Ver Ranking Final';
+
+      const list = document.getElementById('adminQueue');
+      list.innerHTML = state.pending.length === 0
+        ? '<p style="color:#777; font-size:0.85rem;">No hay canciones en espera.</p>'
+        : state.pending.map((item, i) => `
+          <div class="queue-row">
+            <div style="overflow:hidden;">
+              <strong>#${i + 1} ${item.singer}</strong>
+              <div style="font-size:0.78rem; color:#aaa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.title}</div>
+            </div>
+            <div class="row-actions">
+              <button class="move-btn" ${i === 0 ? 'disabled' : ''} onclick="sendAdmin('move_song', { id: ${item.id}, direction: 'up' })">▲</button>
+              <button class="move-btn" ${i === state.pending.length - 1 ? 'disabled' : ''} onclick="sendAdmin('move_song', { id: ${item.id}, direction: 'down' })">▼</button>
+              <button class="del-btn" onclick="sendAdmin('delete_song', { id: ${item.id} })">✕</button>
+            </div>
+          </div>
+        `).join('');
+    });
+  </script>
+</body>
+</html>

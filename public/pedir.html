@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Karaoke - Pedir Canción</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #121212;
+      --card: #1c1c1c;
+      --input: #2a2a2a;
+      --green: #1DB954;
+      --text: #FFFFFF;
+      --muted: #A7A7A7;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Montserrat', sans-serif;
+      padding: 18px;
+      max-width: 480px;
+      margin: 0 auto;
+      padding-bottom: 50px;
+    }
+
+    .welcome-screen {
+      margin-top: 50px;
+      background: var(--card);
+      padding: 28px 22px;
+      border-radius: 20px;
+      text-align: center;
+      border: 1px solid #2e2e2e;
+    }
+    .welcome-screen h1 { color: var(--green); font-size: 1.8rem; margin-bottom: 8px; }
+    .welcome-screen p { color: var(--muted); font-size: 0.9rem; margin-bottom: 22px; }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 800; color: var(--green); }
+    .user-pill {
+      background: #242424;
+      border: 1px solid #333;
+      padding: 6px 12px;
+      border-radius: 50px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 16px;
+      border: 1px solid #292929;
+    }
+    .card-tag {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--green);
+      margin-bottom: 8px;
+    }
+
+    /* VOTACIÓN EN VIVO */
+    .voting-singer { font-size: 1.25rem; font-weight: 800; }
+    .voting-song { font-size: 0.85rem; color: var(--muted); margin-bottom: 14px; }
+    .stars-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+    .star-btn {
+      background: var(--input);
+      border: 1px solid #383838;
+      color: #fff;
+      padding: 12px 0;
+      border-radius: 12px;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .star-btn.selected {
+      background: var(--green);
+      color: #000;
+      border-color: var(--green);
+    }
+    .vote-status {
+      font-size: 0.8rem;
+      color: var(--green);
+      text-align: center;
+      margin-top: 10px;
+      font-weight: 600;
+    }
+
+    /* MIS CANCIONES EN LA COLA */
+    .my-songs-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .my-song-item {
+      background: #242424;
+      padding: 12px 14px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-left: 4px solid var(--green);
+    }
+    .my-song-pos {
+      background: rgba(29, 185, 84, 0.2);
+      color: var(--green);
+      font-weight: 800;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+
+    input {
+      width: 100%;
+      background: var(--input);
+      border: 1px solid #3a3a3a;
+      color: #fff;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-family: inherit;
+      margin-bottom: 14px;
+      outline: none;
+    }
+    input:focus { border-color: var(--green); }
+
+    .btn {
+      width: 100%;
+      padding: 15px;
+      border-radius: 50px;
+      border: none;
+      font-size: 1rem;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .btn-primary { background: var(--green); color: #000; }
+    .btn-secondary {
+      background: #282828;
+      color: #fff;
+      font-size: 0.85rem;
+      padding: 12px;
+      margin-bottom: 14px;
+      border-radius: 12px;
+      display: block;
+      text-align: center;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .btn:disabled { opacity: 0.5; }
+
+    .alert {
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+    .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); color: #fca5a5; }
+    .alert-warn { background: rgba(245, 158, 11, 0.15); border: 1px solid var(--warn); color: #fde68a; }
+    .warn-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .warn-actions button {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. PANTALLA DE REGISTRO RÁPIDO -->
+  <div class="welcome-screen" id="welcomeScreen" style="display:none;">
+    <h1>🎤 KARAOKE PARTY</h1>
+    <p>Poné tu nombre o apodo único para entrar. Queda guardado en tu celu.</p>
+    <input type="text" id="initialNameInput" placeholder="Tu nombre (ej: Nacho)" maxlength="25">
+    <div id="welcomeErr"></div>
+    <button class="btn btn-primary" id="enterBtn" onclick="saveProfileName()">Entrar a la fiesta</button>
+  </div>
+
+  <!-- 2. APP PRINCIPAL INVITADO -->
+  <div id="mainApp" style="display:none;">
+    <header>
+      <h1>🎤 KARAOKE PARTY</h1>
+      <div class="user-pill" onclick="changeName()" id="userBadge">👤 - ✏️</div>
+    </header>
+
+    <!-- BLOQUE VOTACIÓN EN VIVO -->
+    <div class="card" id="votingCard" style="display:none;">
+      <div class="card-tag">🔥 Cantando ahora - ¡Puntuá!</div>
+      <div class="voting-singer" id="voteSinger">-</div>
+      <div class="voting-song" id="voteSong">-</div>
+      <div class="stars-row" id="starsRow">
+        <button class="star-btn" onclick="sendVote(1)">1 ⭐</button>
+        <button class="star-btn" onclick="sendVote(2)">2 ⭐</button>
+        <button class="star-btn" onclick="sendVote(3)">3 ⭐</button>
+        <button class="star-btn" onclick="sendVote(4)">4 ⭐</button>
+        <button class="star-btn" onclick="sendVote(5)">5 ⭐</button>
+      </div>
+      <div class="vote-status" id="voteStatus"></div>
+    </div>
+
+    <!-- MIS CANCIONES EN LA COLA -->
+    <div class="card" id="mySongsCard" style="display:none;">
+      <div class="card-tag">🎶 Tus canciones en espera</div>
+      <div class="my-songs-list" id="mySongsList"></div>
+    </div>
+
+    <!-- FORMULARIO PARA AGREGAR CANCIÓN -->
+    <div class="card">
+      <div class="card-tag">➕ Sumar una canción</div>
+
+      <a href="https://m.youtube.com/results?search_query=karaoke" target="_blank" class="btn-secondary">
+        🔍 Buscar karaoke en YouTube
+      </a>
+
+      <input type="url" id="urlInput" placeholder="Pegá acá el link de YouTube...">
+
+      <div id="feedbackArea"></div>
+
+      <button class="btn btn-primary" id="submitBtn" onclick="checkAndAdd()">Sumar a la cola</button>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    let deviceId = localStorage.getItem('karaoke_device_id');
+    if (!deviceId) {
+      deviceId = 'dev_' + Math.random().toString(36).substring(2) + Date.now();
+      localStorage.setItem('karaoke_device_id', deviceId);
+    }
+
+    let singerName = localStorage.getItem('karaoke_singer_name') || '';
+    let currentQueueId = null;
+    let votedSongs = JSON.parse(localStorage.getItem('karaoke_voted_songs') || '{}');
+
+    async function initApp() {
+      if (!singerName) {
+        document.getElementById('welcomeScreen').style.display = 'block';
+        document.getElementById('mainApp').style.display = 'none';
+      } else {
+        // Sincronizar con el servidor por si se reinició la noche
+        const res = await fetch('/api/register-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId, singer: singerName })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          localStorage.removeItem('karaoke_singer_name');
+          singerName = '';
+          document.getElementById('welcomeScreen').style.display = 'block';
+          document.getElementById('mainApp').style.display = 'none';
+          document.getElementById('welcomeErr').innerHTML = `<div class="alert alert-error">${data.error}</div>`;
+          return;
+        }
+        document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        document.getElementById('userBadge').textContent = `👤 ${singerName} ✏️`;
+      }
+    }
+
+    async function saveProfileName() {
+      const val = document.getElementById('initialNameInput').value.trim();
+      const errBox = document.getElementById('welcomeErr');
+      const btn = document.getElementById('enterBtn');
+      errBox.innerHTML = '';
+
+      if (!val) {
+        errBox.innerHTML = '<div class="alert alert-error">Escribí tu nombre primero.</div>';
+        return;
+      }
+
+      btn.disabled = true;
+      const res = await fetch('/api/register-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, singer: val })
+      });
+      const data = await res.json();
+      btn.disabled = false;
+
+      if (!data.ok) {
+        errBox.innerHTML = `<div class="alert alert-error">${data.error}</div>`;
+        return;
+      }
+
+      singerName = data.singer;
+      localStorage.setItem('karaoke_singer_name', singerName);
+      initApp();
+    }
+
+    async function changeName() {
+      const nuevo = prompt('Cambiá tu nombre (no puede repetir uno existente):', singerName);
+      if (!nuevo || !nuevo.trim() || nuevo.trim() === singerName) return;
+
+      const res = await fetch('/api/register-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, singer: nuevo.trim() })
+      });
+      const data = await res.json();
+
+      if (!data.ok) {
+        alert(data.error);
+        return;
+      }
+
+      singerName = data.singer;
+      localStorage.setItem('karaoke_singer_name', singerName);
+      document.getElementById('userBadge').textContent = `👤 ${singerName} ✏️`;
+    }
+
+    initApp();
+
+    socket.on('state_update', (state) => {
+      const votingCard = document.getElementById('votingCard');
+      if (!state.current) {
+        votingCard.style.display = 'none';
+        currentQueueId = null;
+      } else {
+        votingCard.style.display = 'block';
+        currentQueueId = state.current.id;
+        document.getElementById('voteSinger').textContent = state.current.singer;
+        document.getElementById('voteSong').textContent = state.current.title;
+        renderVoteButtons();
+      }
+
+      const myItems = [];
+      if (state.current && state.current.device_id === deviceId) {
+        myItems.push({ title: state.current.title, label: '¡CANTANDO AHORA! 🎤' });
+      }
+      state.pending.forEach((item, idx) => {
+        if (item.device_id === deviceId) {
+          myItems.push({ title: item.title, label: `#${idx + 1} en cola` });
+        }
+      });
+
+      const mySongsCard = document.getElementById('mySongsCard');
+      const mySongsList = document.getElementById('mySongsList');
+      if (myItems.length === 0) {
+        mySongsCard.style.display = 'none';
+      } else {
+        mySongsCard.style.display = 'block';
+        mySongsList.innerHTML = myItems.map(m => `
+          <div class="my-song-item">
+            <div style="font-size:0.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${m.title}</div>
+            <div class="my-song-pos">${m.label}</div>
+          </div>
+        `).join('');
+      }
+    });
+
+    function renderVoteButtons() {
+      const myScore = votedSongs[currentQueueId];
+      const buttons = document.querySelectorAll('.star-btn');
+      const status = document.getElementById('voteStatus');
+
+      buttons.forEach((btn, idx) => {
+        const val = idx + 1;
+        btn.disabled = !!myScore;
+        btn.classList.toggle('selected', myScore === val);
+      });
+
+      status.textContent = myScore ? `¡Ya votaste con ${myScore} ⭐!` : 'Tocá una estrella para puntuar';
+    }
+
+    async function sendVote(score) {
+      if (!currentQueueId || votedSongs[currentQueueId]) return;
+      const res = await fetch('/api/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queueId: currentQueueId, deviceId, score })
+      });
+      if (res.ok) {
+        votedSongs[currentQueueId] = score;
+        localStorage.setItem('karaoke_voted_songs', JSON.stringify(votedSongs));
+        renderVoteButtons();
+      }
+    }
+
+    async function checkAndAdd() {
+      const url = document.getElementById('urlInput').value.trim();
+      const feedback = document.getElementById('feedbackArea');
+      const btn = document.getElementById('submitBtn');
+      feedback.innerHTML = '';
+
+      if (!url) {
+        feedback.innerHTML = '<div class="alert alert-error">Pegá el link de YouTube primero.</div>';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Verificando video...';
+
+      try {
+        const res = await fetch('/api/check-song', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await res.json();
+
+        if (!data.ok) {
+          feedback.innerHTML = `<div class="alert alert-error">${data.error}</div>`;
+          btn.disabled = false;
+          btn.textContent = 'Sumar a la cola';
+          return;
+        }
+
+        if (!data.isKaraokeLikely) {
+          feedback.innerHTML = `
+            <div class="alert alert-warn">
+              ⚠️ <strong>Ojo:</strong> El video <em>"${data.title}"</em> no dice <strong>Karaoke</strong> en el título. ¿Seguro que es pista sin voz?
+              <div class="warn-actions">
+                <button style="background:#333; color:#fff;" onclick="cancelWarn()">Cambiar link</button>
+                <button style="background:var(--warn); color:#000;" onclick="confirmAdd('${data.videoId}', '${data.title.replace(/'/g, "\\'")}')">Subir igual</button>
+              </div>
+            </div>
+          `;
+          btn.disabled = false;
+          btn.textContent = 'Sumar a la cola';
+          return;
+        }
+
+        await confirmAdd(data.videoId, data.title);
+      } catch (e) {
+        feedback.innerHTML = '<div class="alert alert-error">Error de conexión con el servidor.</div>';
+        btn.disabled = false;
+        btn.textContent = 'Sumar a la cola';
+      }
+    }
+
+    function cancelWarn() {
+      document.getElementById('feedbackArea').innerHTML = '';
+      document.getElementById('urlInput').value = '';
+    }
+
+    async function confirmAdd(videoId, title) {
+      const feedback = document.getElementById('feedbackArea');
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = 'Agregando...';
+
+      const res = await fetch('/api/add-song', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ singer: singerName, videoId, title, deviceId })
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        document.getElementById('urlInput').value = '';
+        feedback.innerHTML = `<div class="alert" style="background:rgba(29,185,84,0.2); border:1px solid var(--green); color:#86efac;">
+          ✅ <strong>¡Adentro!</strong> ${data.position === 0 ? '¡Arrancás vos ahora!' : `Quedaste en el puesto <strong>#${data.position}</strong> de la cola.`}
+        </div>`;
+      } else {
+        feedback.innerHTML = `<div class="alert alert-error">${data.error}</div>`;
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Sumar a la cola';
+    }
+  </script>
+</body>
+</html>
