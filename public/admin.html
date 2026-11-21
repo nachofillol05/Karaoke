@@ -49,12 +49,12 @@
       margin-bottom: 14px;
     }
     .btn {
-      padding: 16px 12px;
+      padding: 15px 12px;
       border: none;
       border-radius: 14px;
       font-family: inherit;
       font-weight: 800;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
       cursor: pointer;
       color: #fff;
       background: #2a2a2a;
@@ -108,6 +108,50 @@
       font-weight: 800;
       cursor: pointer;
     }
+
+    /* MODAL BOTONERA DJ */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.82);
+      z-index: 60;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-box {
+      background: #1c1c1c;
+      border: 1px solid #383838;
+      border-radius: 20px;
+      padding: 22px;
+      width: 100%;
+      max-width: 400px;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .dj-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .dj-btn {
+      background: #282828;
+      border: 1px solid #3d3d3d;
+      color: #fff;
+      padding: 18px 10px;
+      border-radius: 14px;
+      font-family: inherit;
+      font-weight: 800;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .dj-btn:active { transform: scale(0.95); background: var(--green); color: #000; }
   </style>
 </head>
 <body>
@@ -139,9 +183,11 @@
     <div class="grid-2">
       <button class="btn" onclick="sendAdmin('toggle_sidebar')" id="sidebarToggleBtn">👁️ Ocultar Lista</button>
       <button class="btn" onclick="sendAdmin('toggle_qr')" id="qrToggleBtn">📱 Ocultar QR</button>
+      <button class="btn" onclick="sendAdmin('toggle_ticker')" id="tickerToggleBtn">🔴 Ocultar Placa</button>
+      <button class="btn" onclick="openDjModal()">🎛️ Botonera DJ</button>
     </div>
 
-    <button class="btn btn-green btn-full" onclick="sendAdmin('toggle_ranking')" id="rankToggleBtn">🏆 Ver Ranking Final</button>
+    <button class="btn btn-green btn-full" onclick="sendAdmin('toggle_ranking')" id="rankToggleBtn">🏆 Ver Ranking & Wrapped</button>
 
     <div class="card">
       <h3 style="font-size:0.95rem; margin-bottom:10px;">Cola de espera (Mover o Eliminar)</h3>
@@ -149,6 +195,24 @@
     </div>
 
     <button class="btn btn-danger btn-full" onclick="confirmReset()">🗑️ Borrar toda la noche y reiniciar</button>
+  </div>
+
+  <!-- MODAL BOTONERA DE SONIDOS DJ -->
+  <div class="modal-backdrop" id="djModal" onclick="if(event.target === this) closeDjModal()">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="color:var(--green);">🎛️ Efectos de Sonido (TV)</h3>
+        <button onclick="closeDjModal()" style="background:none; border:none; color:#aaa; font-size:1.3rem; cursor:pointer;">✕</button>
+      </div>
+      <div class="dj-grid">
+        <button class="dj-btn" onclick="sendAdmin('dj_sound', { sound: 'drumroll' })">🥁 Redoble</button>
+        <button class="dj-btn" onclick="sendAdmin('dj_sound', { sound: 'applause' })">👏 Aplausos</button>
+        <button class="dj-btn" onclick="sendAdmin('dj_sound', { sound: 'horn' })">📯 Bocina DJ</button>
+        <button class="dj-btn" onclick="sendAdmin('dj_sound', { sound: 'crickets' })">🦗 Grillos</button>
+        <button class="dj-btn" style="grid-column: span 2;" onclick="sendAdmin('dj_sound', { sound: 'fail' })">🎺 Trompeta Triste</button>
+        <button class="dj-btn" style="grid-column: span 2; background:rgba(239,68,68,0.2); border-color:#ef4444;" onclick="sendAdmin('clear_ticker')">🧹 Limpiar mensajes de Placa</button>
+      </div>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -160,6 +224,9 @@
       document.getElementById('loginBox').style.display = 'none';
       document.getElementById('adminPanel').style.display = 'block';
     }
+
+    function openDjModal() { document.getElementById('djModal').classList.add('open'); }
+    function closeDjModal() { document.getElementById('djModal').classList.remove('open'); }
 
     async function login() {
       const password = document.getElementById('passInput').value;
@@ -204,7 +271,8 @@
 
       document.getElementById('sidebarToggleBtn').textContent = state.appState.showSidebar ? '👁️ Ocultar Lista' : '📋 Mostrar Lista';
       document.getElementById('qrToggleBtn').textContent = state.appState.showQR ? '📱 Ocultar QR' : '📱 Mostrar QR';
-      document.getElementById('rankToggleBtn').textContent = state.appState.showRanking ? '❌ Cerrar Ranking' : '🏆 Ver Ranking Final';
+      document.getElementById('tickerToggleBtn').textContent = state.appState.showTicker ? '🔴 Ocultar Placa' : '🔴 Mostrar Placa';
+      document.getElementById('rankToggleBtn').textContent = state.appState.showRanking ? '❌ Cerrar Ranking' : '🏆 Ver Ranking & Wrapped';
 
       const list = document.getElementById('adminQueue');
       list.innerHTML = state.pending.length === 0

@@ -12,6 +12,7 @@
       --green: #1DB954;
       --green-bright: #1ed760;
       --gold: #FFD700;
+      --cronica-red: #D90429;
       --text-main: #FFFFFF;
       --text-muted: #B3B3B3;
     }
@@ -36,6 +37,7 @@
       align-items: center;
       justify-content: center;
       transition: all 0.3s ease;
+      overflow: hidden;
     }
 
     #player {
@@ -55,7 +57,9 @@
       justify-content: center;
       text-align: center;
       padding: 20px;
+      gap: 16px;
     }
+    .unlock-overlay img { border-radius: 12px; background: #fff; padding: 6px; }
     .unlock-btn {
       background: var(--green);
       color: #000;
@@ -66,7 +70,7 @@
       padding: 20px 44px;
       border-radius: 50px;
       cursor: pointer;
-      margin-top: 24px;
+      margin-top: 8px;
       box-shadow: 0 10px 30px rgba(29, 185, 84, 0.4);
     }
     .unlock-btn:hover { transform: scale(1.04); background: var(--green-bright); }
@@ -81,13 +85,15 @@
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 40px;
+      padding: 40px 40px 80px 40px;
       z-index: 5;
+      gap: 14px;
     }
-    .empty-stage h1 { font-size: 3.5rem; font-weight: 900; margin-bottom: 16px; }
+    .empty-stage h1 { font-size: 3.5rem; font-weight: 900; }
     .empty-stage p { font-size: 1.3rem; color: var(--text-muted); max-width: 600px; }
+    .empty-stage img { border-radius: 12px; background: #fff; padding: 6px; margin-top: 6px; }
     .empty-stage .url-badge {
-      margin-top: 28px;
+      margin-top: 10px;
       background: var(--green);
       color: #000;
       font-weight: 800;
@@ -111,6 +117,9 @@
       gap: 14px;
       z-index: 10;
       box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    }
+    .now-singing-bar.shake {
+      animation: tomatoShake 0.45s ease;
     }
     .live-dot {
       width: 12px; height: 12px;
@@ -151,7 +160,7 @@
     /* QR flotante cuando la sidebar está oculta */
     .floating-qr {
       position: absolute;
-      bottom: 24px;
+      bottom: 64px;
       right: 24px;
       background: rgba(20, 20, 20, 0.9);
       padding: 8px;
@@ -163,12 +172,11 @@
       gap: 10px;
     }
     .floating-qr img { width: 128px; height: 128px; border-radius: 6px; background: #fff; padding: 2px; }
-    .floating-qr span { font-size: 0.75rem; font-weight: 700; color: var(--green); max-width: 120px; }
 
     /* Ventanita "PRÓXIMAMENTE" */
     .up-next-banner {
       position: absolute;
-      bottom: 36px;
+      bottom: 66px;
       left: 32px;
       background: rgba(24, 24, 24, 0.95);
       backdrop-filter: blur(14px);
@@ -177,7 +185,7 @@
       border-radius: 14px;
       box-shadow: 0 16px 40px rgba(0,0,0,0.75);
       z-index: 15;
-      transform: translateY(160%);
+      transform: translateY(220%);
       transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
       max-width: 480px;
     }
@@ -192,6 +200,110 @@
     }
     .up-next-banner .next-singer { font-size: 1.6rem; font-weight: 900; }
     .up-next-banner .next-song { font-size: 0.95rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* CINTA ESTILO CRÓNICA TV FIJA EN TODO MOMENTO ABAJO */
+    .cronica-ticker {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 46px;
+      background: var(--cronica-red);
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      z-index: 45;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.75);
+      border-top: 2px solid #FFFFFF;
+      transition: transform 0.35s ease;
+    }
+    .cronica-ticker.hidden {
+      transform: translateY(100%);
+    }
+    .cronica-badge {
+      background: #FFFFFF;
+      color: var(--cronica-red);
+      font-weight: 900;
+      font-size: 0.85rem;
+      padding: 0 16px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      box-shadow: 4px 0 12px rgba(0,0,0,0.3);
+      z-index: 2;
+    }
+    .cronica-track {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      overflow: hidden;
+    }
+    .cronica-msg {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 100%;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      font-weight: 900;
+      font-size: 1.15rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      text-shadow: 1px 2px 4px rgba(0,0,0,0.45);
+      will-change: left, transform;
+      animation: marqueeCross 12s linear forwards;
+    }
+    .cronica-msg span {
+      background: rgba(0,0,0,0.35);
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-right: 10px;
+      color: #FFD700;
+    }
+
+    @keyframes marqueeCross {
+      0% {
+        left: 100%;
+        transform: translateX(0);
+      }
+      100% {
+        left: 0%;
+        transform: translateX(-100%);
+      }
+    }
+
+    /* REACCIONES FLOTANTES EN VIVO */
+    .reactions-layer {
+      position: fixed;
+      bottom: 56px;
+      right: 365px;
+      width: 140px;
+      height: 360px;
+      pointer-events: none;
+      z-index: 42;
+      overflow: visible;
+      transition: right 0.3s ease;
+    }
+    .reactions-layer.wide {
+      right: 40px;
+    }
+    .floating-emoji {
+      position: absolute;
+      bottom: 0;
+      font-size: 2.8rem;
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,0.6));
+      animation: floatUp 2.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes floatUp {
+      0% { transform: translateY(0) scale(0.5) rotate(0deg); opacity: 0; }
+      15% { opacity: 1; transform: translateY(-40px) scale(1.15) rotate(-8deg); }
+      60% { opacity: 1; transform: translateY(-200px) scale(1) rotate(8deg); }
+      100% { transform: translateY(-330px) scale(0.85) rotate(-5deg); opacity: 0; }
+    }
 
     /* Pantalla gigante de transición + Delay con cuenta regresiva */
     .spotlight-overlay {
@@ -289,7 +401,7 @@
       display: flex;
       flex-direction: column;
       height: 100vh;
-      padding: 20px 16px;
+      padding: 20px 16px 62px 16px;
       justify-content: space-between;
       transition: width 0.3s ease, padding 0.3s ease;
     }
@@ -384,7 +496,7 @@
     .qr-text strong { display: block; font-size: 0.85rem; color: var(--green); }
     .qr-text span { font-size: 0.72rem; color: var(--text-muted); word-break: break-all; }
 
-    /* OVERLAY RANKING FINAL */
+    /* OVERLAY RANKING FINAL + KARAOKE WRAPPED */
     .ranking-overlay {
       position: fixed;
       inset: 0;
@@ -393,25 +505,45 @@
       display: none;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 40px;
+      justify-content: flex-start;
+      padding: 36px 40px 70px 40px;
+      overflow-y: auto;
     }
     .ranking-overlay.active { display: flex; }
-    .ranking-overlay h1 { font-size: 3.2rem; font-weight: 900; color: var(--green); margin-bottom: 8px; }
-    .ranking-overlay p { color: var(--text-muted); font-size: 1.1rem; margin-bottom: 32px; }
+    .ranking-overlay h1 { font-size: 3rem; font-weight: 900; color: var(--green); margin-bottom: 6px; }
+    .ranking-overlay > p { color: var(--text-muted); font-size: 1.05rem; margin-bottom: 24px; }
+
+    .wrapped-grid {
+      width: 100%;
+      max-width: 960px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .wrapped-card {
+      background: linear-gradient(145deg, #222, #181818);
+      border: 1px solid #383838;
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+    }
+    .wrapped-emoji { font-size: 2.2rem; margin-bottom: 6px; }
+    .wrapped-title { font-size: 0.75rem; font-weight: 800; color: var(--green-bright); text-transform: uppercase; letter-spacing: 1px; }
+    .wrapped-winner { font-size: 1.25rem; font-weight: 900; margin-top: 6px; color: #fff; }
+    .wrapped-detail { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
     .ranking-list {
       width: 100%;
-      max-width: 760px;
+      max-width: 960px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      max-height: 70vh;
-      overflow-y: auto;
+      gap: 12px;
     }
     .rank-card {
       background: var(--bg-elevated);
       border-radius: 14px;
-      padding: 18px 24px;
+      padding: 16px 22px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -421,17 +553,23 @@
     .rank-card:nth-child(2) { border-color: #C0C0C0; }
     .rank-card:nth-child(3) { border-color: #CD7F32; }
     .rank-left { display: flex; align-items: center; gap: 18px; }
-    .rank-pos { font-size: 1.8rem; font-weight: 900; width: 42px; text-align: center; }
-    .rank-singer { font-size: 1.3rem; font-weight: 800; }
-    .rank-song { font-size: 0.9rem; color: var(--text-muted); }
+    .rank-pos { font-size: 1.7rem; font-weight: 900; width: 42px; text-align: center; }
+    .rank-singer { font-size: 1.25rem; font-weight: 800; }
+    .rank-song { font-size: 0.88rem; color: var(--text-muted); }
     .rank-score { text-align: right; }
-    .rank-stars { font-size: 1.6rem; font-weight: 900; color: var(--gold); }
+    .rank-stars { font-size: 1.5rem; font-weight: 900; color: var(--gold); }
     .rank-votes { font-size: 0.8rem; color: var(--text-muted); }
 
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     @keyframes popBounce {
       0% { transform: scale(0.7) translateY(-20px); opacity: 0; }
       100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    @keyframes tomatoShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-8px) rotate(-2deg); }
+      50% { transform: translateX(8px) rotate(2deg); }
+      75% { transform: translateX(-6px); }
     }
   </style>
 </head>
@@ -506,10 +644,20 @@
     </div>
   </aside>
 
-  <!-- RANKING FINAL -->
+  <!-- CAPA DE REACCIONES FLOTANTES EN VIVO -->
+  <div class="reactions-layer" id="reactionsLayer"></div>
+
+  <!-- CARTELERA ESTILO CRÓNICA TV (SIEMPRE VISIBLE EN PANTALLA) -->
+  <div class="cronica-ticker" id="cronicaTicker">
+    <div class="cronica-badge">🔴 EN VIVO</div>
+    <div class="cronica-track" id="cronicaTrack"></div>
+  </div>
+
+  <!-- RANKING FINAL + KARAOKE WRAPPED -->
   <div class="ranking-overlay" id="rankingOverlay">
-    <h1>🏆 RANKING DE LA NOCHE</h1>
-    <p>Los puntajes más altos votados por el público</p>
+    <h1>🏆 KARAOKE WRAPPED & RANKING</h1>
+    <p>Los premios especiales y puntajes de toda la noche</p>
+    <div class="wrapped-grid" id="wrappedGrid"></div>
     <div class="ranking-list" id="rankingList"></div>
   </div>
 
@@ -527,6 +675,7 @@
     let timeCheckInterval = null;
     let introTimer = null;
     let autoPlayEnabled = true;
+    let audioCtx = null;
 
     const START_DELAY_SECONDS = 5;
 
@@ -539,8 +688,31 @@
       document.getElementById('centerUrl').textContent = data.url;
     });
 
+    function ensureAudioUnlocked() {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!audioCtx && AudioContextClass) {
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      // Reproducir un oscilador inaudible de 10ms para destrabar el canal de audio del navegador
+      if (audioCtx) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0.001;
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.02);
+      }
+    }
+
+    // Desbloquear también ante cualquier clic en la ventana de la TV por si refrescan
+    window.addEventListener('pointerdown', ensureAudioUnlocked, { once: true });
+
     function unlockStage() {
       unlocked = true;
+      ensureAudioUnlocked();
       document.getElementById('unlockOverlay').style.display = 'none';
       if (playerReady && player && currentVideoId) {
         const singer = document.getElementById('nowSinger').textContent;
@@ -548,6 +720,171 @@
       }
     }
 
+    // --- SINTETIZADOR DE EFECTOS DE SONIDO DJ (POTENTE Y SIN MP3) ---
+    function playSynthEffect(type) {
+      ensureAudioUnlocked();
+      if (!audioCtx) return;
+
+      const master = audioCtx.createGain();
+      master.gain.value = 1.4;
+      master.connect(audioCtx.destination);
+      const now = audioCtx.currentTime;
+
+      if (type === 'horn') {
+        [440, 554.37, 659.25].forEach(freq => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now);
+          osc.frequency.linearRampToValueAtTime(freq * 0.96, now + 0.75);
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+          osc.connect(gain).connect(master);
+          osc.start(now);
+          osc.stop(now + 0.82);
+        });
+      } else if (type === 'crickets') {
+        for (let b = 0; b < 3; b++) {
+          const start = now + b * 0.55;
+          for (let p = 0; p < 4; p++) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(4200, start + p * 0.06);
+            gain.gain.setValueAtTime(0.28, start + p * 0.06);
+            gain.gain.exponentialRampToValueAtTime(0.001, start + p * 0.06 + 0.045);
+            osc.connect(gain).connect(master);
+            osc.start(start + p * 0.06);
+            osc.stop(start + p * 0.06 + 0.05);
+          }
+        }
+      } else if (type === 'drumroll') {
+        for (let i = 0; i < 24; i++) {
+          const t = now + i * 0.065;
+          const bufferSize = Math.floor(audioCtx.sampleRate * 0.055);
+          const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let j = 0; j < bufferSize; j++) data[j] = Math.random() * 2 - 1;
+          const noise = audioCtx.createBufferSource();
+          noise.buffer = buffer;
+          const gain = audioCtx.createGain();
+          gain.gain.setValueAtTime(0.12 + (i / 24) * 0.4, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
+          noise.connect(gain).connect(master);
+          noise.start(t);
+        }
+        const cymTime = now + 24 * 0.065;
+        const cymSize = Math.floor(audioCtx.sampleRate * 1.0);
+        const cymBuf = audioCtx.createBuffer(1, cymSize, audioCtx.sampleRate);
+        const cymData = cymBuf.getChannelData(0);
+        for (let j = 0; j < cymSize; j++) cymData[j] = Math.random() * 2 - 1;
+        const cym = audioCtx.createBufferSource();
+        cym.buffer = cymBuf;
+        const cymGain = audioCtx.createGain();
+        cymGain.gain.setValueAtTime(0.55, cymTime);
+        cymGain.gain.exponentialRampToValueAtTime(0.001, cymTime + 1.0);
+        cym.connect(cymGain).connect(master);
+        cym.start(cymTime);
+      } else if (type === 'applause') {
+        const dur = 2.4;
+        const size = Math.floor(audioCtx.sampleRate * dur);
+        const buf = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let j = 0; j < size; j++) {
+          const clapMod = Math.sin(j * 0.03) * Math.sin(j * 0.007);
+          data[j] = (Math.random() * 2 - 1) * (0.5 + 0.5 * clapMod);
+        }
+        const src = audioCtx.createBufferSource();
+        src.buffer = buf;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1200;
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.02, now);
+        gain.gain.linearRampToValueAtTime(0.65, now + 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        src.connect(filter).connect(gain).connect(master);
+        src.start(now);
+      } else if (type === 'fail') {
+        const notes = [311.13, 293.66, 277.18, 261.63];
+        notes.forEach((freq, idx) => {
+          const t = now + idx * 0.32;
+          const dur = idx === 3 ? 0.9 : 0.28;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, t);
+          if (idx === 3) osc.frequency.linearRampToValueAtTime(freq - 18, t + dur);
+          gain.gain.setValueAtTime(0.35, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+          osc.connect(gain).connect(master);
+          osc.start(t);
+          osc.stop(t + dur + 0.02);
+        });
+      }
+    }
+
+    socket.on('play_dj_sound', ({ sound }) => {
+      playSynthEffect(sound);
+    });
+
+    // --- REACCIONES EN VIVO ---
+    socket.on('live_reaction', ({ emoji }) => {
+      const layer = document.getElementById('reactionsLayer');
+      const el = document.createElement('div');
+      el.className = 'floating-emoji';
+      el.textContent = emoji;
+      el.style.left = `${Math.floor(Math.random() * 85)}px`;
+      layer.appendChild(el);
+      setTimeout(() => el.remove(), 2700);
+
+      if (emoji === '🍅') {
+        const bar = document.getElementById('nowBar');
+        bar.classList.remove('shake');
+        void bar.offsetWidth;
+        bar.classList.add('shake');
+      }
+    });
+
+    // --- CARTELERA CRÓNICA TV ---
+    let tickerQueue = [];
+    let tickerBusy = false;
+
+    function processTickerQueue() {
+      if (tickerBusy || tickerQueue.length === 0) return;
+      tickerBusy = true;
+      const item = tickerQueue.shift();
+      const track = document.getElementById('cronicaTrack');
+
+      const msgEl = document.createElement('div');
+      msgEl.className = 'cronica-msg';
+      msgEl.innerHTML = `<span>${escapeHtml(item.author)}:</span> ${escapeHtml(item.text)}`;
+      track.appendChild(msgEl);
+
+      setTimeout(() => {
+        tickerBusy = false;
+        processTickerQueue();
+      }, 5000);
+
+      setTimeout(() => msgEl.remove(), 12500);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    socket.on('ticker_message', (data) => {
+      tickerQueue.push(data);
+      processTickerQueue();
+    });
+
+    socket.on('clear_ticker', () => {
+      tickerQueue = [];
+      tickerBusy = false;
+      document.getElementById('cronicaTrack').innerHTML = '';
+    });
+
+    // --- YOUTUBE PLAYER ---
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
         height: '100%',
@@ -682,13 +1019,58 @@
       showPopup(`➕ SE SUMÓ • ${posText}`, singer, title);
     });
 
-    socket.on('ranking_update', ({ show, ranking }) => {
+    socket.on('ranking_update', ({ show, ranking, wrapped }) => {
       const overlay = document.getElementById('rankingOverlay');
+      const wrappedGrid = document.getElementById('wrappedGrid');
       const list = document.getElementById('rankingList');
+
       if (!show) {
         overlay.classList.remove('active');
         return;
       }
+
+      const cards = [];
+      if (wrapped?.mostActive) {
+        cards.push(`
+          <div class="wrapped-card">
+            <div class="wrapped-emoji">🔥</div>
+            <div class="wrapped-title">El Más Manija</div>
+            <div class="wrapped-winner">${wrapped.mostActive.name}</div>
+            <div class="wrapped-detail">${wrapped.mostActive.detail}</div>
+          </div>
+        `);
+      }
+      if (wrapped?.hater) {
+        cards.push(`
+          <div class="wrapped-card">
+            <div class="wrapped-emoji">🍅</div>
+            <div class="wrapped-title">Jurado Más Hater</div>
+            <div class="wrapped-winner">${wrapped.hater.name}</div>
+            <div class="wrapped-detail">${wrapped.hater.detail}</div>
+          </div>
+        `);
+      }
+      if (wrapped?.generous) {
+        cards.push(`
+          <div class="wrapped-card">
+            <div class="wrapped-emoji">💖</div>
+            <div class="wrapped-title">Jurado Más Generoso</div>
+            <div class="wrapped-winner">${wrapped.generous.name}</div>
+            <div class="wrapped-detail">${wrapped.generous.detail}</div>
+          </div>
+        `);
+      }
+      if (wrapped?.lowestSong) {
+        cards.push(`
+          <div class="wrapped-card">
+            <div class="wrapped-emoji">🧊</div>
+            <div class="wrapped-title">Momento Más Frío</div>
+            <div class="wrapped-winner">${wrapped.lowestSong.name}</div>
+            <div class="wrapped-detail">${wrapped.lowestSong.detail}</div>
+          </div>
+        `);
+      }
+      wrappedGrid.innerHTML = cards.join('');
 
       list.innerHTML = ranking.length === 0
         ? '<p style="text-align:center;">Todavía no hay canciones puntuadas.</p>'
@@ -721,16 +1103,24 @@
         prepareSongWithDelay(currentVideoId, singer, currentSongTitle);
       }
 
+      // Mostrar/ocultar cartelera Crónica TV
+      const ticker = document.getElementById('cronicaTicker');
+      if (state.appState.showTicker) ticker.classList.remove('hidden');
+      else ticker.classList.add('hidden');
+
       // Mostrar/ocultar sidebar (solo desde Admin)
       const sidebar = document.getElementById('sidebar');
       const floatingQr = document.getElementById('floatingQr');
+      const reactionsLayer = document.getElementById('reactionsLayer');
 
       if (state.appState.showSidebar) {
         sidebar.classList.remove('collapsed');
         floatingQr.style.display = 'none';
+        reactionsLayer.classList.remove('wide');
       } else {
         sidebar.classList.add('collapsed');
         floatingQr.style.display = state.appState.showQR ? 'flex' : 'none';
+        reactionsLayer.classList.add('wide');
       }
 
       // Mostrar/ocultar QR

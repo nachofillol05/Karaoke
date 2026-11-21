@@ -54,9 +54,13 @@ let appState = {
   showQR: true,
   showSidebar: true,
   showRanking: false,
+  showTicker: true,
   autoPlay: true,
   isPlaying: true
 };
+
+const lastReactionTime = {};
+const lastTickerTime = {};
 
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
@@ -93,32 +97,27 @@ async function getYoutubeMetadata(videoId) {
   }
 }
 
-// Obtiene la cola ordenada por sort_order (respeta tanto prioridad inicial como movimientos del admin)
 function getPendingQueue() {
   return db.prepare("SELECT * FROM queue WHERE status = 'pending' ORDER BY sort_order ASC, id ASC").all();
 }
 
-// Calcula el sort_order justo (Round-Robin) al insertar una canción nueva
 function calculateInitialSortOrder(deviceId, singer) {
   const pending = getPendingQueue();
   if (pending.length === 0) return 100;
 
   const normSinger = singer.trim().toLowerCase();
 
-  // Cuántas canciones ya cantó/está cantando este usuario
   const pastCount = db.prepare(`
     SELECT COUNT(*) as count FROM queue 
     WHERE status IN ('played', 'playing') AND (device_id = ? OR LOWER(TRIM(singer)) = ?)
   `).get(deviceId, normSinger).count;
 
-  // Cuántas tiene actualmente en espera
   const currentPendingCount = pending.filter(
     item => item.device_id === deviceId || item.singer.trim().toLowerCase() === normSinger
   ).length;
 
   const newSongRound = pastCount + currentPendingCount;
 
-  // Calcular la ronda de cada canción existente en la cola
   const playedRows = db.prepare(`
     SELECT device_id, LOWER(TRIM(singer)) as norm_singer, COUNT(*) as count 
     FROM queue WHERE status IN ('played', 'playing') GROUP BY device_id, norm_singer
@@ -137,7 +136,6 @@ function calculateInitialSortOrder(deviceId, singer) {
     return { ...item, round };
   });
 
-  // Insertar después de la última canción que tenga ronda <= newSongRound
   let insertAfterIndex = -1;
   for (let i = 0; i < pendingWithRound.length; i++) {
     if (pendingWithRound[i].round <= newSongRound) {
@@ -145,16 +143,51 @@ function calculateInitialSortOrder(deviceId, singer) {
     }
   }
 
-  if (insertAfterIndex === -1) {
-    return pending[0].sort_order - 10;
-  }
-  if (insertAfterIndex === pending.length - 1) {
-    return pending[pending.length - 1].sort_order + 10;
+  if (insertAfterIndex === -1) return pending[0].sort_order - 10;
+  if (insertAfterIndex === pending.length - 1) return pending[pending.length - 1].sort_order + 10;
+
+  return (pending[insertAfterIndex].sort_order + pending[insertAfterIndex + 1].sort_order) / 2;
+}
+
+// Ponderación: 0.8x si tiene 4 seguidos iguales con 5 o 1
+function getVoterWeightsMap() {
+  const allVotes = db.prepare("SELECT device_id, score FROM votes ORDER BY id ASC").all();
+  const byUser = {};
+  for (const v of allVotes) {
+    if (!byUser[v.device_id]) byUser[v.device_id] = [];
+    byUser[v.device_id].push(v.score);
   }
 
-  const prevOrder = pending[insertAfterIndex].sort_order;
-  const nextOrder = pending[insertAfterIndex + 1].sort_order;
-  return (prevOrder + nextOrder) / 2;
+  const weights = {};
+  for (const [devId, scores] of Object.entries(byUser)) {
+    if (scores.length >= 4) {
+      const lastFour = scores.slice(-4);
+      const allOnes = lastFour.every(s => s === 1);
+      const allFives = lastFour.every(s => s === 5);
+      weights[devId] = (allOnes || allFives) ? 0.8 : 1.0;
+    } else {
+      weights[devId] = 1.0;
+    }
+  }
+  return weights;
+}
+
+function computeWeightedSongScore(queueId, weightsMap) {
+  const votes = db.prepare("SELECT device_id, score FROM votes WHERE queue_id = ?").all(queueId);
+  if (votes.length === 0) return { avg: 0, count: 0 };
+
+  let weightedSum = 0;
+  let totalWeight = 0;
+  for (const v of votes) {
+    const w = weightsMap[v.device_id] || 1.0;
+    weightedSum += v.score * w;
+    totalWeight += w;
+  }
+  const avg = totalWeight > 0 ? weightedSum / totalWeight : 0;
+  return {
+    avg: Number(avg.toFixed(1)),
+    count: votes.length
+  };
 }
 
 function getFullState() {
@@ -170,11 +203,8 @@ function getFullState() {
 
   let currentScore = { avg: 0, count: 0 };
   if (current) {
-    const stats = db.prepare("SELECT AVG(score) as avg, COUNT(*) as count FROM votes WHERE queue_id = ?").get(current.id);
-    currentScore = {
-      avg: stats.avg ? Number(stats.avg.toFixed(1)) : 0,
-      count: stats.count || 0
-    };
+    const weights = getVoterWeightsMap();
+    currentScore = computeWeightedSongScore(current.id, weights);
   }
 
   return {
@@ -186,23 +216,91 @@ function getFullState() {
   };
 }
 
-function getRanking() {
-  const rows = db.prepare(`
+function getRankingAndWrapped() {
+  const weights = getVoterWeightsMap();
+  const songs = db.prepare("SELECT id, device_id, singer, title FROM queue WHERE status IN ('played', 'playing')").all();
+
+  const ranking = songs.map(s => {
+    const stats = computeWeightedSongScore(s.id, weights);
+    return {
+      ...s,
+      avg_score: stats.avg,
+      vote_count: stats.count
+    };
+  }).sort((a, b) => {
+    if (b.avg_score !== a.avg_score) return b.avg_score - a.avg_score;
+    return b.vote_count - a.vote_count;
+  });
+
+  const users = db.prepare("SELECT device_id, singer FROM users").all();
+  const userNameMap = {};
+  for (const u of users) userNameMap[u.device_id] = u.singer;
+
+  const queueNames = db.prepare("SELECT DISTINCT device_id, singer FROM queue").all();
+  for (const q of queueNames) {
+    if (!userNameMap[q.device_id]) userNameMap[q.device_id] = q.singer;
+  }
+
+  const voterStats = db.prepare(`
     SELECT 
-      q.id, q.singer, q.title,
-      COALESCE(AVG(v.score), 0) as avg_score,
-      COUNT(v.id) as vote_count
-    FROM queue q
-    LEFT JOIN votes v ON q.id = v.queue_id
-    WHERE q.status IN ('played', 'playing')
-    GROUP BY q.id
-    ORDER BY avg_score DESC, vote_count DESC
+      device_id,
+      AVG(score) as avg_given,
+      COUNT(*) as total_votes,
+      SUM(CASE WHEN score = 5 THEN 1 ELSE 0 END) as fives_given
+    FROM votes
+    GROUP BY device_id
+    HAVING total_votes >= 2
   `).all();
 
-  return rows.map(r => ({
-    ...r,
-    avg_score: Number(r.avg_score.toFixed(1))
-  }));
+  let hater = null;
+  let generous = null;
+
+  if (voterStats.length > 0) {
+    const sortedHater = [...voterStats].sort((a, b) => a.avg_given - b.avg_given)[0];
+    hater = {
+      name: userNameMap[sortedHater.device_id] || 'Anónimo',
+      detail: `Promedio ${Number(sortedHater.avg_given).toFixed(1)} ⭐ (${sortedHater.total_votes} votos)`
+    };
+
+    const sortedGenerous = [...voterStats].sort((a, b) => {
+      if (b.fives_given !== a.fives_given) return b.fives_given - a.fives_given;
+      return b.avg_given - a.avg_given;
+    })[0];
+    generous = {
+      name: userNameMap[sortedGenerous.device_id] || 'Anónimo',
+      detail: `${sortedGenerous.fives_given} cincos regalados (Prom. ${Number(sortedGenerous.avg_given).toFixed(1)} ⭐)`
+    };
+  }
+
+  const singerCounts = db.prepare(`
+    SELECT device_id, singer, COUNT(*) as sang_count
+    FROM queue
+    WHERE status IN ('played', 'playing')
+    GROUP BY device_id
+    ORDER BY sang_count DESC
+    LIMIT 1
+  `).get();
+
+  const mostActive = singerCounts ? {
+    name: userNameMap[singerCounts.device_id] || singerCounts.singer,
+    detail: `${singerCounts.sang_count} ${singerCounts.sang_count === 1 ? 'tema cantado' : 'temas cantados'}`
+  } : null;
+
+  const votedSongs = ranking.filter(r => r.vote_count > 0);
+  const lowestSong = votedSongs.length > 1 ? votedSongs[votedSongs.length - 1] : null;
+
+  return {
+    ranking,
+    wrapped: {
+      hater,
+      generous,
+      mostActive,
+      lowestSong: lowestSong ? {
+        name: lowestSong.singer,
+        detail: `"${lowestSong.title}" (${lowestSong.avg_score} ⭐)`
+      } : null
+    }
+  };
 }
 
 // --- API ---
@@ -219,7 +317,6 @@ app.get('/api/qr', async (req, res) => {
   }
 });
 
-// Registrar o actualizar nombre evitando duplicados
 app.post('/api/register-user', (req, res) => {
   const { deviceId, singer } = req.body;
   if (!deviceId || !singer || !singer.trim()) {
@@ -229,7 +326,6 @@ app.post('/api/register-user', (req, res) => {
   const cleanSinger = singer.trim().slice(0, 25);
   const normSinger = cleanSinger.toLowerCase();
 
-  // Verificar si otro dispositivo ya reservó ese nombre
   const taken = db.prepare("SELECT * FROM users WHERE norm_singer = ? AND device_id != ?").get(normSinger, deviceId);
   if (taken) {
     return res.status(409).json({
@@ -244,7 +340,6 @@ app.post('/api/register-user', (req, res) => {
     ON CONFLICT(device_id) DO UPDATE SET singer = excluded.singer, norm_singer = excluded.norm_singer
   `).run(deviceId, cleanSinger, normSinger);
 
-  // Actualizar también su nombre en canciones pendientes si se lo cambió
   db.prepare("UPDATE queue SET singer = ? WHERE device_id = ? AND status = 'pending'").run(cleanSinger, deviceId);
   io.emit('state_update', getFullState());
 
@@ -291,7 +386,6 @@ app.post('/api/add-song', (req, res) => {
   const cleanSinger = singer.trim().slice(0, 25);
   const normSinger = cleanSinger.toLowerCase();
 
-  // Asegurar registro del nombre único
   const taken = db.prepare("SELECT * FROM users WHERE norm_singer = ? AND device_id != ?").get(normSinger, deviceId);
   if (taken) {
     return res.status(409).json({ ok: false, error: `El nombre "${cleanSinger}" ya está en uso.` });
@@ -338,6 +432,11 @@ app.post('/api/vote', (req, res) => {
     return res.status(400).json({ ok: false, error: 'Voto inválido.' });
   }
 
+  const song = db.prepare("SELECT device_id FROM queue WHERE id = ?").get(queueId);
+  if (song && song.device_id === deviceId) {
+    return res.status(403).json({ ok: false, error: '¡No vale autovotarse mientras cantás!' });
+  }
+
   try {
     db.prepare("INSERT INTO votes (queue_id, device_id, score) VALUES (?, ?, ?)").run(queueId, deviceId, numScore);
     io.emit('state_update', getFullState());
@@ -345,6 +444,46 @@ app.post('/api/vote', (req, res) => {
   } catch (err) {
     res.status(409).json({ ok: false, error: 'Ya votaste en esta canción.' });
   }
+});
+
+app.post('/api/react', (req, res) => {
+  const { deviceId, emoji } = req.body;
+  const allowed = ['🔥', '👏', '🍅', '💀'];
+  if (!deviceId || !allowed.includes(emoji)) {
+    return res.status(400).json({ ok: false });
+  }
+
+  const now = Date.now();
+  if (lastReactionTime[deviceId] && now - lastReactionTime[deviceId] < 3500) {
+    return res.status(429).json({ ok: false, error: 'Esperá unos segundos.' });
+  }
+  lastReactionTime[deviceId] = now;
+
+  io.emit('live_reaction', { emoji });
+  res.json({ ok: true });
+});
+
+app.post('/api/ticker', (req, res) => {
+  const { deviceId, singer, text } = req.body;
+  if (!appState.showTicker) {
+    return res.status(403).json({ ok: false, error: 'La cartelera está desactivada.' });
+  }
+  if (!deviceId || !text || !text.trim()) {
+    return res.status(400).json({ ok: false, error: 'Escribí un mensaje.' });
+  }
+
+  const now = Date.now();
+  if (lastTickerTime[deviceId] && now - lastTickerTime[deviceId] < 12000) {
+    const wait = Math.ceil((12000 - (now - lastTickerTime[deviceId])) / 1000);
+    return res.status(429).json({ ok: false, error: `Esperá ${wait}s para mandar otro mensaje.` });
+  }
+  lastTickerTime[deviceId] = now;
+
+  const cleanAuthor = (singer || 'Anónimo').trim().slice(0, 20);
+  const cleanText = text.trim().slice(0, 75);
+
+  io.emit('ticker_message', { author: cleanAuthor, text: cleanText });
+  res.json({ ok: true });
 });
 
 app.post('/api/admin/login', (req, res) => {
@@ -416,11 +555,26 @@ io.on('connection', (socket) => {
         io.emit('state_update', getFullState());
         break;
 
-      case 'toggle_ranking':
-        appState.showRanking = !appState.showRanking;
-        io.emit('ranking_update', { show: appState.showRanking, ranking: getRanking() });
+      case 'toggle_ticker':
+        appState.showTicker = !appState.showTicker;
         io.emit('state_update', getFullState());
         break;
+
+      case 'clear_ticker':
+        io.emit('clear_ticker');
+        break;
+
+      case 'dj_sound':
+        io.emit('play_dj_sound', { sound: data.sound });
+        break;
+
+      case 'toggle_ranking': {
+        appState.showRanking = !appState.showRanking;
+        const payload = appState.showRanking ? getRankingAndWrapped() : { ranking: [], wrapped: {} };
+        io.emit('ranking_update', { show: appState.showRanking, ...payload });
+        io.emit('state_update', getFullState());
+        break;
+      }
 
       case 'move_song': {
         const pending = getPendingQueue();
@@ -430,7 +584,6 @@ io.on('connection', (socket) => {
         const targetIdx = data.direction === 'up' ? idx - 1 : idx + 1;
         if (targetIdx < 0 || targetIdx >= pending.length) break;
 
-        // Intercambiar en el array y renumerar limpiamente todos los sort_order
         const temp = pending[idx];
         pending[idx] = pending[targetIdx];
         pending[targetIdx] = temp;
@@ -455,7 +608,8 @@ io.on('connection', (socket) => {
         db.prepare("DELETE FROM queue").run();
         db.prepare("DELETE FROM users").run();
         appState.showRanking = false;
-        io.emit('ranking_update', { show: false, ranking: [] });
+        io.emit('ranking_update', { show: false, ranking: [], wrapped: {} });
+        io.emit('clear_ticker');
         io.emit('state_update', getFullState());
         break;
     }

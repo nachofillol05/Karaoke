@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Karaoke - Pedir Canción</title>
+  <title>Karaoke Party - Pedir Canción</title>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -11,6 +11,7 @@
       --card: #1c1c1c;
       --input: #2a2a2a;
       --green: #1DB954;
+      --cronica: #D90429;
       --text: #FFFFFF;
       --muted: #A7A7A7;
       --warn: #f59e0b;
@@ -101,6 +102,50 @@
       margin-top: 10px;
       font-weight: 600;
     }
+
+    /* REACCIONES RÁPIDAS */
+    .reactions-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #2b2b2b;
+    }
+    .react-btn {
+      background: #252525;
+      border: 1px solid #363636;
+      border-radius: 12px;
+      padding: 10px 0;
+      font-size: 1.35rem;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    .react-btn:active { transform: scale(0.88); }
+    .react-btn:disabled { opacity: 0.4; }
+
+    /* CARTELERA CRÓNICA */
+    .ticker-form {
+      display: flex;
+      gap: 8px;
+    }
+    .ticker-form input {
+      margin-bottom: 0;
+      padding: 12px;
+      font-size: 0.9rem;
+    }
+    .ticker-send-btn {
+      background: var(--cronica);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 0 16px;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .ticker-send-btn:disabled { opacity: 0.5; }
 
     /* MIS CANCIONES EN LA COLA */
     .my-songs-list {
@@ -205,7 +250,7 @@
       <div class="user-pill" onclick="changeName()" id="userBadge">👤 - ✏️</div>
     </header>
 
-    <!-- BLOQUE VOTACIÓN EN VIVO -->
+    <!-- BLOQUE VOTACIÓN + REACCIONES EN VIVO -->
     <div class="card" id="votingCard" style="display:none;">
       <div class="card-tag">🔥 Cantando ahora - ¡Puntuá!</div>
       <div class="voting-singer" id="voteSinger">-</div>
@@ -218,11 +263,28 @@
         <button class="star-btn" onclick="sendVote(5)">5 ⭐</button>
       </div>
       <div class="vote-status" id="voteStatus"></div>
+
+      <div class="reactions-row">
+        <button class="react-btn" onclick="sendReaction('🔥')">🔥</button>
+        <button class="react-btn" onclick="sendReaction('👏')">👏</button>
+        <button class="react-btn" onclick="sendReaction('🍅')">🍅</button>
+        <button class="react-btn" onclick="sendReaction('💀')">💀</button>
+      </div>
+    </div>
+
+    <!-- CARTELERA EN VIVO (SE OCULTA SI ADMIN LA APAGA) -->
+    <div class="card" id="tickerCard">
+      <div class="card-tag" style="color:#ff4d6d;">🔴 Placa en vivo en la TV</div>
+      <div class="ticker-form">
+        <input type="text" id="tickerInput" placeholder="Mandá un mensaje corto a la tele..." maxlength="75">
+        <button class="ticker-send-btn" id="tickerBtn" onclick="sendTicker()">Enviar</button>
+      </div>
+      <div id="tickerFeedback" style="font-size:0.78rem; color:#aaa; margin-top:6px;"></div>
     </div>
 
     <!-- MIS CANCIONES EN LA COLA -->
     <div class="card" id="mySongsCard" style="display:none;">
-      <div class="card-tag">🎶 Tus canciones en espera</div>
+      <div class="card-tag">🎶 Tus temas en espera</div>
       <div class="my-songs-list" id="mySongsList"></div>
     </div>
 
@@ -254,6 +316,7 @@
 
     let singerName = localStorage.getItem('karaoke_singer_name') || '';
     let currentQueueId = null;
+    let currentSingerDeviceId = null;
     let votedSongs = JSON.parse(localStorage.getItem('karaoke_voted_songs') || '{}');
 
     async function initApp() {
@@ -261,7 +324,6 @@
         document.getElementById('welcomeScreen').style.display = 'block';
         document.getElementById('mainApp').style.display = 'none';
       } else {
-        // Sincronizar con el servidor por si se reinició la noche
         const res = await fetch('/api/register-user', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -336,13 +398,19 @@
     initApp();
 
     socket.on('state_update', (state) => {
+      // Ocultar o mostrar cartelera según configuración del admin
+      const tickerCard = document.getElementById('tickerCard');
+      tickerCard.style.display = state.appState.showTicker ? 'block' : 'none';
+
       const votingCard = document.getElementById('votingCard');
       if (!state.current) {
         votingCard.style.display = 'none';
         currentQueueId = null;
+        currentSingerDeviceId = null;
       } else {
         votingCard.style.display = 'block';
         currentQueueId = state.current.id;
+        currentSingerDeviceId = state.current.device_id;
         document.getElementById('voteSinger').textContent = state.current.singer;
         document.getElementById('voteSong').textContent = state.current.title;
         renderVoteButtons();
@@ -374,21 +442,28 @@
     });
 
     function renderVoteButtons() {
+      const isMe = currentSingerDeviceId === deviceId;
       const myScore = votedSongs[currentQueueId];
       const buttons = document.querySelectorAll('.star-btn');
       const status = document.getElementById('voteStatus');
 
       buttons.forEach((btn, idx) => {
         const val = idx + 1;
-        btn.disabled = !!myScore;
+        btn.disabled = isMe || !!myScore;
         btn.classList.toggle('selected', myScore === val);
       });
 
-      status.textContent = myScore ? `¡Ya votaste con ${myScore} ⭐!` : 'Tocá una estrella para puntuar';
+      if (isMe) {
+        status.textContent = '🎤 Estás cantando vos (no vale autovotarse)';
+      } else if (myScore) {
+        status.textContent = `¡Ya votaste con ${myScore} ⭐!`;
+      } else {
+        status.textContent = 'Tocá una estrella para puntuar';
+      }
     }
 
     async function sendVote(score) {
-      if (!currentQueueId || votedSongs[currentQueueId]) return;
+      if (!currentQueueId || votedSongs[currentQueueId] || currentSingerDeviceId === deviceId) return;
       const res = await fetch('/api/vote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -398,6 +473,45 @@
         votedSongs[currentQueueId] = score;
         localStorage.setItem('karaoke_voted_songs', JSON.stringify(votedSongs));
         renderVoteButtons();
+      }
+    }
+
+    async function sendReaction(emoji) {
+      const btns = document.querySelectorAll('.react-btn');
+      btns.forEach(b => b.disabled = true);
+      setTimeout(() => btns.forEach(b => b.disabled = false), 3500);
+
+      await fetch('/api/react', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, emoji })
+      });
+    }
+
+    async function sendTicker() {
+      const input = document.getElementById('tickerInput');
+      const btn = document.getElementById('tickerBtn');
+      const fb = document.getElementById('tickerFeedback');
+      const text = input.value.trim();
+      if (!text) return;
+
+      btn.disabled = true;
+      const res = await fetch('/api/ticker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, singer: singerName, text })
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        input.value = '';
+        fb.style.color = '#86efac';
+        fb.textContent = '✅ ¡Saliendo en la placa de la tele!';
+        setTimeout(() => { btn.disabled = false; fb.textContent = ''; }, 12000);
+      } else {
+        fb.style.color = '#fca5a5';
+        fb.textContent = data.error || 'No se pudo enviar.';
+        btn.disabled = false;
       }
     }
 
